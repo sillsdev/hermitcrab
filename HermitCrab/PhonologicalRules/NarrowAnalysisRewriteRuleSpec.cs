@@ -33,7 +33,10 @@ namespace SIL.HermitCrab.PhonologicalRules
 			{
 				FeatureStruct fs = constraint.FeatureStruct.DeepClone();
 				if (varBindings != null)
+				{
 					fs.ReplaceVariables(varBindings);
+					fs.RemoveVariables();
+				}
 				curNode = targetMatch.Input.Shape.AddAfter(curNode, fs, true);
 			}
 
