@@ -95,7 +95,12 @@ namespace SIL.HermitCrab
 
 		public IEnumerable<Allomorph> AllomorphsInMorphOrder
 		{
-			get { return Morphs.Select(GetAllomorph); }
+			get
+			{
+				// there can be multiple morphs for a single allomorph, but we only want to return an allomorph on its
+				// first occurrence, so we use distinct
+				return Morphs.Select(GetAllomorph).Distinct();
+			}
 		}
 
 		public ICollection<Allomorph> Allomorphs
