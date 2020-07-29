@@ -1,0 +1,21 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Pack">
+	<Target Name="Build">
+		<msbuild Projects="../HermitCrab.sln" Targets="Rebuild" Properties="Configuration=Release" />
+	</Target>
+
+	<Target Name="Pack" DependsOnTargets="Build">
+		<ItemGroup>
+			<Files Include="../HermitCrab/bin/Release/SIL.HermitCrab.*" />
+		</ItemGroup>
+		<PropertyGroup>
+			<PackageName>SIL.Machine.Morphology.HermitCrab</PackageName>
+			<Destination>$(PackageName)/lib/net40</Destination>
+		</PropertyGroup>
+
+		<MakeDir Directories="$(Destination)" />
+		<Copy SourceFiles="@(Files)" DestinationFolder="$(Destination)" />
+		<Copy SourceFiles="$(PackageName).nuspec" DestinationFolder="$(PackageName)" />
+
+		<Exec Command="..\..\.nuget\NuGet.exe pack -OutputDirectory $(MSBuildThisFileDirectory)" WorkingDirectory="$(PackageName)" />
+	</Target>
+</Project>
