@@ -197,6 +197,8 @@ namespace SIL.HermitCrab
 
 		private IEnumerable<Word> LexicalLookup(Word input)
 		{
+			if (input.ToString().Length == 0)
+				yield break;
 			if (_traceManager.IsTracing)
 				_traceManager.LexicalLookup(input.Stratum, input);
 			foreach (LexEntry entry in SearchRootAllomorphs(input.Stratum, input.Shape).Select(allo => allo.Morpheme).Cast<LexEntry>().Where(LexEntrySelector).Distinct())
