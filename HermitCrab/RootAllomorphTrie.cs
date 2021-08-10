@@ -62,6 +62,8 @@ namespace SIL.HermitCrab
 
 		public IEnumerable<RootAllomorph> Search(Shape shape)
 		{
+			if (shape.Count == 0)
+				yield break;
 			Annotation<ShapeNode> startAnn = shape.Annotations.GetFirst(_filter);
 			IEnumerable<FstResult<Shape, ShapeNode>> matches;
 			if (_fsa.Transduce(shape, startAnn, null, true, true, false, out matches))

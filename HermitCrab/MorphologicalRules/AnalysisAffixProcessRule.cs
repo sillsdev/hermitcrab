@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using SIL.Machine.Annotations;
@@ -34,6 +35,8 @@ namespace SIL.HermitCrab.MorphologicalRules
 
 		public IEnumerable<Word> Apply(Word input)
 		{
+			if (input.ToString().Length == 0)
+				return Enumerable.Empty<Word>();
 			if (!_morpher.RuleSelector(_rule))
 				return Enumerable.Empty<Word>();
 
