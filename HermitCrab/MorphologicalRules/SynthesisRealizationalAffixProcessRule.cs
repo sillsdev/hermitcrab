@@ -24,11 +24,11 @@ namespace SIL.HermitCrab.MorphologicalRules
 			{
 				_rules.Add(new PatternRule<Word, ShapeNode>(spanFactory, new SynthesisAffixProcessAllomorphRuleSpec(allo),
 					new MatcherSettings<ShapeNode>
-						{
-							Filter = ann => ann.Type().IsOneOf(HCFeatureSystem.Segment, HCFeatureSystem.Boundary) && !ann.IsDeleted(),
-							AnchoredToStart = true,
-							AnchoredToEnd = true
-						}));
+					{
+						Filter = ann => ann.Type().IsOneOf(HCFeatureSystem.Segment, HCFeatureSystem.Boundary) && !ann.IsDeleted(),
+						AnchoredToStart = true,
+						AnchoredToEnd = true
+					}));
 			}
 		}
 
@@ -51,6 +51,7 @@ namespace SIL.HermitCrab.MorphologicalRules
 				return Enumerable.Empty<Word>();
 			}
 
+			var appliedAllomorphIndices = new HashSet<int>();
 			var output = new List<Word>();
 			for (int i = 0; i < _rules.Count; i++)
 			{
@@ -74,10 +75,11 @@ namespace SIL.HermitCrab.MorphologicalRules
 				{
 					outWord.SyntacticFeatureStruct = syntacticFS;
 					outWord.SyntacticFeatureStruct.PriorityUnion(_rule.RealizationalFeatureStruct);
-					outWord.MorphologicalRuleApplied(_rule);
 
-					Word newWord;
-					if (_rule.Blockable && outWord.CheckBlocking(out newWord))
+					outWord.MorphologicalRuleApplied(_rule, appliedAllomorphIndices);
+					appliedAllomorphIndices.Add(i);
+
+					if (_rule.Blockable && outWord.CheckBlocking(out Word newWord))
 					{
 						if (_morpher.TraceManager.IsTracing)
 							_morpher.TraceManager.ParseBlocked(_rule, newWord);

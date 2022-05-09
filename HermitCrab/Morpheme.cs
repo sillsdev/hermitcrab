@@ -9,7 +9,7 @@ namespace SIL.HermitCrab
 	/// </summary>
 	public abstract class Morpheme
 	{
-		private readonly ObservableCollection<MorphemeCoOccurrenceRule> _morphemeCoOccurrenceRules;
+		private readonly HashSet<MorphemeCoOccurrenceRule> _morphemeCoOccurrenceRules;
 		private readonly Properties _properties;
 
 		/// <summary>
@@ -17,23 +17,8 @@ namespace SIL.HermitCrab
 		/// </summary>
 		protected Morpheme()
 		{
-			_morphemeCoOccurrenceRules = new ObservableCollection<MorphemeCoOccurrenceRule>();
-			_morphemeCoOccurrenceRules.CollectionChanged += MorphemeCoOccurrenceRuleRulesChanged;
+			_morphemeCoOccurrenceRules = new HashSet<MorphemeCoOccurrenceRule>();
 			_properties = new Properties();
-		}
-
-		private void MorphemeCoOccurrenceRuleRulesChanged(object sender, NotifyCollectionChangedEventArgs e)
-		{
-			if (e.OldItems != null)
-			{
-				foreach (MorphemeCoOccurrenceRule cooccur in e.OldItems)
-					cooccur.Key = null;
-			}
-			if (e.NewItems != null)
-			{
-				foreach (MorphemeCoOccurrenceRule cooccur in e.NewItems)
-					cooccur.Key = this;
-			}
 		}
 
 		/// <summary>
@@ -47,6 +32,8 @@ namespace SIL.HermitCrab
 		/// </summary>
 		/// <value>The gloss.</value>
 		public string Gloss { get; set; }
+
+		public abstract int AllomorphCount { get; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether this morpheme is partially analyzed.

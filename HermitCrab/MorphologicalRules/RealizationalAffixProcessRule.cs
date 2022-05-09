@@ -64,6 +64,8 @@ namespace SIL.HermitCrab.MorphologicalRules
 			return new SynthesisRealizationalAffixProcessRule(spanFactory, morpher, this);
 		}
 
+		public override int AllomorphCount => _allomorphs.Count;
+
 		public override Allomorph GetAllomorph(int index)
 		{
 			return _allomorphs[index];

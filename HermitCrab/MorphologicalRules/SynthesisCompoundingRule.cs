@@ -178,12 +178,13 @@ namespace SIL.HermitCrab.MorphologicalRules
 					if (existingMorphNodes.TryGetValue(inputMorph, out nodes))
 					{
 						Allomorph allomorph = headMatch.Input.GetAllomorph(inputMorph);
-						output.MarkMorph(nodes, allomorph);
+						string morphID = (string)inputMorph.FeatureStruct.GetValue(HCFeatureSystem.MorphID);
+						output.MarkMorph(nodes, allomorph, morphID);
 					}
 				}
 			}
 
-			output.MarkMorph(newMorphNodes, headMatch.Input.CurrentNonHead.RootAllomorph);
+			output.MarkMorph(newMorphNodes, headMatch.Input.CurrentNonHead.RootAllomorph, Word.RootMorphID);
 
 			return output;
 		}

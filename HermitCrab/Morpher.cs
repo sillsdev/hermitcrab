@@ -69,8 +69,7 @@ namespace SIL.HermitCrab
 		/// <returns>All valid word synthesis records.</returns>
 		public IEnumerable<Word> ParseWord(string word)
 		{
-			object trace;
-			return ParseWord(word, out trace);
+			return ParseWord(word, out _);
 		}
 
 		public IEnumerable<Word> ParseWord(string word, out object trace)
@@ -85,7 +84,7 @@ namespace SIL.HermitCrab
 			trace = input.CurrentTrace;
 
 			// Unapply rules
-			IEnumerable<Word> analyses = _analysisRule.Apply(input);
+			var analyses = new ConcurrentQueue<Word>(_analysisRule.Apply(input));
 
 #if OUTPUT_ANALYSES
 			var lines = new List<string>();
@@ -99,93 +98,59 @@ namespace SIL.HermitCrab
 			File.WriteAllLines("analyses.txt", lines.OrderBy(l => l));
 #endif
 
-#if SINGLE_THREADED
-			IEnumerable<Word> validWords = Synthesize(analyses);
-#else
-			IEnumerable<Word> validWords = ParallelSynthesize(analyses);
-#endif
-
-			var matchList = new List<Word>();
-			foreach (IGrouping<IEnumerable<Allomorph>, Word> group in validWords.GroupBy(validWord => validWord.AllomorphsInMorphOrder, MorphsEqualityComparer))
-			{
-				// enforce the disjunctive property of allomorphs by ensuring that this word synthesis
-				// has the highest order of precedence for its allomorphs
-				Word[] words = group.ToArray();
-				for (int i = 0; i < words.Length; i++)
-				{
-					bool disjunctive = false;
-					for (int j = 0; j < words.Length; j++)
-					{
-						if (i == j)
-							continue;
-
-						// if the two parses differ by one allomorph and that allomorph does not free fluctuate and has a lower precedence, than the parse fails
-						Tuple<Allomorph, Allomorph>[] differentAllomorphs = words[i].AllomorphsInMorphOrder.Zip(words[j].AllomorphsInMorphOrder).Where(t => t.Item1 != t.Item2).ToArray();
-						if (differentAllomorphs.Length == 1 && !differentAllomorphs[0].Item1.FreeFluctuatesWith(differentAllomorphs[0].Item2)
-							&& differentAllomorphs[0].Item1.Index >= differentAllomorphs[0].Item2.Index)
-						{
-							disjunctive = true;
-							if (_traceManager.IsTracing)
-								_traceManager.ParseFailed(_lang, words[i], FailureReason.DisjunctiveAllomorph, null, words[j]);
-							break;
-						}
-					}
-
-					if (!disjunctive)
-					{
-						if (_lang.SurfaceStratum.CharacterDefinitionTable.IsMatch(word, words[i].Shape))
-						{
-							if (_traceManager.IsTracing)
-								_traceManager.ParseSuccessful(_lang, words[i]);
-							matchList.Add(words[i]);
-						}
-						else if (_traceManager.IsTracing)
-						{
-							_traceManager.ParseFailed(_lang, words[i], FailureReason.SurfaceFormMismatch, null, word);
-						}
-					}
-				}
-			}
-			return matchList;
+			return Synthesize(word, analyses);
 		}
 
 #if SINGLE_THREADED
-		private IEnumerable<Word> Synthesize(IEnumerable<Word> analyses)
+		private IEnumerable<Word> Synthesize(string word, IEnumerable<Word> analyses)
 		{
-			var validWords = new HashSet<Word>(FreezableEqualityComparer<Word>.Default);
+			var matches = new HashSet<Word>(FreezableEqualityComparer<Word>.Default);
 			foreach (Word analysisWord in analyses)
 			{
 				foreach (Word synthesisWord in LexicalLookup(analysisWord))
-					validWords.UnionWith(_synthesisRule.Apply(synthesisWord).Where(IsWordValid));
-			}
-			return validWords;
-		}
-#else
-		private IEnumerable<Word> ParallelSynthesize(IEnumerable<Word> analyses)
-		{
-			var validWordsStack = new ConcurrentStack<Word>();
-			Exception exception = null;
-			Parallel.ForEach(analyses, (analysisWord, state) =>
-			{
-				try
 				{
-					foreach (Word synthesisWord in LexicalLookup(analysisWord))
+					foreach (Word validWord in _synthesisRule.Apply(synthesisWord).Where(IsWordValid))
 					{
-						Word[] valid = _synthesisRule.Apply(synthesisWord).Where(IsWordValid).ToArray();
-						if (valid.Length > 0)
-							validWordsStack.PushRange(valid);
+						if (IsMatch(word, validWord))
+							matches.Add(validWord);
 					}
 				}
-				catch (Exception e)
+			}
+			return matches;
+		}
+#else
+		private IEnumerable<Word> Synthesize(string word, ConcurrentQueue<Word> analyses)
+		{
+			var matches = new ConcurrentBag<Word>();
+			Exception exception = null;
+			Parallel.ForEach(Partitioner.Create(0, analyses.Count),
+				new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+				(range, state) =>
 				{
-					state.Stop();
-					exception = e;
-				}
-			});
-
+					try
+					{
+						for (int i = 0; i < range.Item2 - range.Item1; i++)
+						{
+							analyses.TryDequeue(out Word analysisWord);
+							foreach (Word synthesisWord in LexicalLookup(analysisWord))
+							{
+								foreach (Word validWord in _synthesisRule.Apply(synthesisWord).Where(IsWordValid))
+								{
+									if (IsMatch(word, validWord))
+										matches.Add(validWord);
+								}
+							}
+						}
+					}
+					catch (Exception e)
+					{
+						state.Stop();
+						exception = e;
+					}
+				});
 			if (exception != null)
 				throw exception;
-			return validWordsStack.Distinct(FreezableEqualityComparer<Word>.Default);
+			return matches.Distinct(FreezableEqualityComparer<Word>.Default);
 		}
 #endif
 
@@ -233,6 +198,21 @@ namespace SIL.HermitCrab
 			}
 
 			return word.Allomorphs.All(allo => allo.IsWordValid(this, word));
+		}
+
+		private bool IsMatch(string word, Word validWord)
+		{
+			if (_lang.SurfaceStratum.CharacterDefinitionTable.IsMatch(word, validWord.Shape))
+			{
+				if (_traceManager.IsTracing)
+					_traceManager.ParseSuccessful(_lang, validWord);
+				return true;
+			}
+			else if (_traceManager.IsTracing)
+			{
+				_traceManager.ParseFailed(_lang, validWord, FailureReason.SurfaceFormMismatch, null, word);
+			}
+			return false;
 		}
 
 		private bool ContainsFeature(FeatureStruct fs, Feature feature, ISet<FeatureStruct> visited)
